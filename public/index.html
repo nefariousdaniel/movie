@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movies App</title>
+    <style>
+        *{
+            margin: 0px;
+            padding: 0px;
+            box-sizing: border-box;
+            border: 0px;
+        }
+
+        body{
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        nav{
+            width: 100%;
+            position: sticky;
+            top: 0px;
+            box-shadow: 0px .35rem 1rem rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #EEE;
+            z-index: 2;
+        }
+        
+        .nav-brand{
+            padding: 1rem;
+        }
+
+        .search-container{
+            background-color: #DDD;
+            padding: 1rem;
+        }
+
+        form > input{
+            width: 100%;
+            padding: .5rem 1rem;
+            background-color: #FFF;
+            border: 1px solid #AAA;
+            text-align: center;
+        }
+
+        select{
+            width: 100%;
+            padding: .5rem 1rem;
+            background-color: #FFF;
+            border: 1px solid #AAA;
+            text-align: center;
+        }
+
+        .container{
+            display: grid;
+            grid-template-columns: repeat(6,1fr);
+            grid-auto-rows: 300px;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .movie-container{
+            border-radius: .25rem;
+            position: relative;
+            
+        }
+
+        .movie-image{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: .75rem;
+            transition: filter linear .2s;
+        }
+
+        .movie-image:hover{
+            filter: blur(2px) brightness(0.8);
+        }
+
+        .movie-image:hover ~ .movie-title{
+            pointer-events: all;
+            opacity: 1;
+        }
+
+
+
+        .movie-title{
+            position: absolute;
+            bottom: 10%;
+            left: 5%;
+            color: white;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity linear .2s;
+        }
+
+        .pagination-container{
+            position: sticky;
+            bottom: 0px;
+            width: 100%;
+            padding: 1rem;
+            background-color: #EEE;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #pg-left-button,#pg-right-button,#pg-number{
+            padding: 1rem;
+            background-color: #DDD;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <h1 class="nav-brand">Movies App</h1>
+    </nav>
+
+    <div class="search-container">
+        <form>
+            <input type="search" placeholder="Search" id="search">
+
+            <select name="genres" id="genres">
+                <option value="0">Select Genre</option>
+            </select>
+
+            <select name="languages" id="languages">
+                <option value="0">Select Language</option>
+            </select>
+        </form>
+    </div>
+
+    <div class="container"></div>
+
+
+    <div class="pagination-container">
+        <button id="pg-left-button"><</button>
+        <p id="pg-number">1</p>
+        <button id="pg-right-button">></button>
+    </div>
+
+    <script>
+
+        var paginationOffset = 0;
+        var paginationLimit = 10;
+        var paginationNumber = 1;
+
+        document.querySelector("#pg-left-button").addEventListener('click',()=>{
+            paginationNumber--;
+            paginationOffset = paginationOffset - paginationLimit;
+            document.querySelector("#pg-number").innerText = paginationNumber;
+            clearMovieContainer();
+            search();
+        })
+
+        document.querySelector("#pg-right-button").addEventListener('click',()=>{
+            paginationNumber++;
+            paginationOffset = paginationOffset + paginationLimit;
+            document.querySelector("#pg-number").innerText = paginationNumber;
+            clearMovieContainer();
+            search();
+        })
+        
+        document.querySelector("#genres").addEventListener("change",(e)=>{
+            e.preventDefault();
+            clearMovieContainer();
+            search();
+        })
+
+        document.querySelector("#languages").addEventListener("change",(e)=>{
+            e.preventDefault();
+            clearMovieContainer();
+            search();
+        })
+
+        document.querySelector("form").addEventListener("submit",(e)=>{
+            e.preventDefault();
+            clearMovieContainer();
+            search();
+        })
+        
+        function getGenres(){
+            doGet(`${document.location.origin}/api/getGenres`).then((res)=>{
+                console.log(res);
+                res.forEach(element => {
+                    populateGenres(element);
+                });
+            });
+        }
+
+        function populateGenres(entry){
+            let genreDropdownElement = document.querySelector("#genres");
+            let datalistElement = document.createElement('option');
+            datalistElement.innerText = entry.genres;
+            datalistElement.setAttribute("value",entry.id);
+            genreDropdownElement.appendChild(datalistElement);
+        }
+
+        function getLanguages(){
+            doGet(`${document.location.origin}/api/getLanguages`).then((res)=>{
+                console.log(res);
+                res.forEach(element => {
+                    populateLanguages(element);
+                });
+            });
+        }
+
+        function populateLanguages(entry){
+            let languageDropdownElement = document.querySelector("#languages");
+            let datalistElement = document.createElement('option');
+            datalistElement.innerText = entry.language;
+            datalistElement.setAttribute("value",entry.id);
+            languageDropdownElement.appendChild(datalistElement);
+        }
+
+        function search(){
+            var searchURL = new URL(`${document.location.origin}/api/getMovieList`);
+            searchURL.searchParams.append("limit", paginationLimit); 
+            searchURL.searchParams.append("offset", paginationOffset);
+            searchURL.searchParams.append("search", document.forms[0][0].value);
+            searchURL.searchParams.append("genre", document.querySelector("#genres").value);
+            searchURL.searchParams.append("language", document.querySelector("#languages").value);
+            console.log(searchURL.href);
+            getMovies(searchURL.href);
+        }
+
+        function clearMovieContainer(){
+            let container = document.querySelector(".container");
+            container.innerHTML = "";
+        }
+
+        function getMovies(url){
+
+            doGet(url).then((res)=>{
+                res.forEach(element => {
+                    populateMovies(element);
+                });
+            });
+        }
+
+        function populateMovies(data){
+            let container = document.querySelector(".container");
+            let a = document.createElement('a');
+            a.setAttribute("href",`/movies/${data.id}`);
+            a.classList.add("movie-container");
+
+            let img = document.createElement('img');
+            img.setAttribute("src",`/storage/movie_thumbnails/${data.id}`);
+            img.classList.add("movie-image");
+
+            let h3 = document.createElement('h3');
+            h3.innerText = data.title;
+            h3.classList.add("movie-title");
+
+            a.appendChild(img);
+            a.appendChild(h3);
+            container.appendChild(a);
+        }
+
+        async function doGet(url){
+            let response = await fetch(url);
+            return response.json();
+        }
+
+        search();
+        getGenres();
+        getLanguages();
+    </script>
+</body>
+</html>
